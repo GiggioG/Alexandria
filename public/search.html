@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alexandria Search</title>
+    <link rel="shortcut icon" href="/icon.png" type="image/x-icon">
+    <link rel="stylesheet" href="/style.css">
+    <script src="/util.js"></script>
+    <style>
+
+    </style>
+</head>
+
+<body>
+    <div id="links">
+        <a href="/" class="link-a"><img src="/homepage.png" class="link-icon"></a>
+        <a href="/add" class="link-a"><img src="/add.png" class="link-icon"></a>
+    </div>
+    <h1>Search</h1>
+    <label>Search by:</label>
+    <select id="type">
+        <option value="id">UUID</option>
+        <option selected="" value="name">Name</option>
+        <option value="uri">Source</option>
+    </select>
+    <br>
+    <input type="text" id="search" placeholder="Search..." style="width:calc(100% - 50px);">
+    <br>
+    <input type="button" id="submit" value="Search">
+    <input type="button" id="random" value="Open Random">
+    <hr>
+    <ul id="results">
+    </ul>
+    <script>
+        qs("input#random").disabled = true;
+        qs("input#random").addEventListener("click", () => {
+            randel(qs("a.filelink", true)).click();
+        })
+        qs("input#submit").addEventListener("click", () => {
+            let by = qs("select#type").value;
+            let search = qs("input#search").value;
+            fetch(`${location.origin}/api/search?by=${by}&search=${search}`)
+                .then(r => r.json())
+                .then(l => {
+                    qs("ul#results").innerHTML = "";
+                    qs("input#random").disabled = false;
+                    l.forEach(id => {
+                        addFile(id, qs("ul#results"));
+                    });
+                    if (l.length == 0) {
+                        qs("ul#results").innerHTML = "<b style=\"color:red\">No results.</b>";
+                        qs("input#random").disabled = true;
+                    }
+                })
+                .catch(console.error);
+        });
+    </script>
+</body>
+
+</html>

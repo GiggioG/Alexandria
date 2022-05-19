@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/icon.png" type="image/x-icon">
+    <link rel="stylesheet" href="/style.css">
+    <title>Add new file - Alexandria</title>
+    <script src="/util.js"></script>
+</head>
+
+<body>
+    <div id="links">
+        <a href="/search" class="link-a"><img src="/search.png" class="link-icon"></a>
+        <a href="/" class="link-a"><img src="/homepage.png" class="link-icon"></a>
+    </div>
+    <h1>Add new file</h1>
+    <input type="text" id="name" placeholder="File name..." style="width:calc(100% - 50px);">
+    <br>
+    <input type="url" id="uri" pattern="(https|http)://.*" placeholder="Source uri..." style="width:calc(100% - 50px);">
+    <br>
+    <input type="button" id="submit" value="Add">
+    <script>
+        qs("input#submit").addEventListener("click", () => {
+            let name = qs("input#name").value;
+            if (name.length == 0) {
+                alert("The file name must not be empty.");
+                return;
+            }
+            if (!qs("input#uri").checkValidity()) {
+                alert("This is not a valid uri.");
+                return;
+            }
+            let uri = qs("input#uri").value;
+            let status;
+            fetch(`${location.origin}/api/add?uri=${uri}&name=${name}`)
+                .then(r => {
+                    status = r.status;
+                    return r.text();
+                })
+                .then(r => {
+                    if (status != 200) {
+                        alert(r);
+                    } else {
+                        location.href = `${location.origin}/file?id=${r}`;
+                    }
+                })
+                .catch(console.err);
+        });
+    </script>
+</body>
+
+</html>

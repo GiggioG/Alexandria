@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/icon.png" type="image/x-icon">
+    <link rel="stylesheet" href="/style.css">
+    <script src="/util.js"></script>
+</head>
+
+<body>
+    <div id="links">
+        <a href="/search" class="link-a"><img src="/search.png" class="link-icon"></a>
+        <a href="/" class="link-a"><img src="/homepage.png" class="link-icon"></a>
+        <a href="/add" class="link-a"><img src="/add.png" class="link-icon"></a>
+    </div>
+    <h1 id="title"></h1>
+    <a target="_blank" id="src"></a>
+    <sub class="sub" id="mimetype"></sub>
+    <br>
+    <button id="update">Update</button>
+    <button id="rename">Rename</button>
+    <button id="delete">Delete</button>
+    <h2>Link to latest version:</h2>
+    <a target="_blank" id="latest"></a>
+    <h2 id="versions"></h2>
+    <ul id="vers"></ul>
+    <script>
+        let id = null;
+
+        {
+            var vars = window.location.search.substring(1).split('&');
+            for (var i = 0; i < vars.length; i++) {
+                var pair = vars[i].split('=');
+                if (decodeURIComponent(pair[0]) == "id") {
+                    id = decodeURIComponent(pair[1]);
+                    break;
+                }
+            }
+        }
+
+        qs("button#delete").addEventListener("click", () => {
+            if (!confirm(`Are you sure that you want to delete this file. This will delete the associated previous versions and other metadata.`)) {
+                return;
+            }
+            spin("Deleting...");
+            fetch(`${location.origin}/api/del?id=${id}`)
+                .then(r => r.text())
+                .then(r => {
+                    if (r == "true") {
+                        location.href = `${location.origin}/`;
+                    }
+                    throw `/del endpoint returned "${r}" instead of expected "true"`;
+                }).catch(console.err);
+        });
+
+        qs("button#update").addEventListener("click", () => {
+            spin("Getting new version...");
+            fetch(`${location.origin}/api/update?id=${id}`)
+                .then(r => r.text())
+                .then(r => {
+                    if (r == "false") {
+                        alert("No new version of the file found.");
+                        location.reload();
+                    }
+                    location.reload();
+                }).catch(console.err);
+        });
+
+        qs("button#rename").addEventListener("click", () => {
+            let newname = prompt("New file name? (leave empty to cancel)");
+            if (newname.length == 0) {
+                return;
+            }
+            spin("Renaming...");
+            fetch(`${location.origin}/api/ren?id=${id}&name=${newname}`)
+                .then(r => r.text())
+                .then(r => {
+                    location.reload();
+                })
+                .catch(console.err);
+        })
+
+        fetch(`${location.origin}/api/meta?id=${id}`)
+            .then(r => r.json())
+            .then(m => {
+                document.title = `${m.name} - Alexandria`;
+                qs("h1#title").innerText = m.name;
+                if (m.type != "null") {
+                    qs("sub#mimetype").innerText = `(${m.type.split(';')[0]})`;
+                } else {
+                    qs("sub#mimetype").remove();
+                }
+                qs("a#src").href = m.uri;
+                qs("a#src").innerText = `Source: ${(new URL(m.uri)).hostname}`;
+                qs("a#latest").innerText = `${location.origin}/api/get?id=${id}`;
+                qs("a#latest").href = `${location.origin}/api/get?id=${id}`;
+                qs("h2#versions").innerText = `Other versions: ${m.version+1}`;
+                for (let i = m.version; i >= 0; i--) {
+                    let li = el("li");
+                    let a = el("a");
+                    a.target = "_blank";
+                    a.innerText = `Version ${i+1} ${i==m.version?"(Latest)":""}`;
+                    a.href = `${location.origin}/api/get?id=${id}&v=${i}`;
+                    let sub = el("sub", new Date(m.versionTimes[i] * 1000).toLocaleString(), "sub");
+                    li.appendChild(a);
+                    li.appendChild(sub);
+                    qs("ul#vers").appendChild(li);
+                }
+            })
+            .catch(() => {
+                location.href = `${location.origin}/`;
+            });
+    </script>
+</body>
+
+</html>

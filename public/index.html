@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alexandria</title>
+    <link rel="shortcut icon" href="/icon.png" type="image/x-icon">
+    <link rel="stylesheet" href="/style.css">
+    <script src="/util.js"></script>
+</head>
+
+<body>
+    <div id="links">
+        <a href="/search" class="link-a"><img src="/search.png" class="link-icon"></a>
+        <a href="/add" class="link-a"><img src="/add.png" class="link-icon"></a>
+    </div>
+    <h1 id="title">Alexandria</h1>
+    <button id="random">Pick Random</button>
+    <ul id="list"></ul>
+    <script>
+        let list = document.querySelector("ul#list");
+
+        qs("button#random").addEventListener("click", () => {
+            randel(qs("a.filelink", true)).click();
+        })
+
+        fetch(`${location.origin}/api/list`)
+            .then(d => d.json())
+            .then(l => {
+                l.forEach(id => {
+                    addFile(id, list);
+                });
+                if (l.length == 0) {
+                    qs("button#random").remove();
+                    qs("ul#list").innerHTML = "<b style=\"color:red\">This Alexandria instance doesn't have any files.</b>";
+                }
+            })
+            .catch(console.err);
+    </script>
+</body>
+
+</html>

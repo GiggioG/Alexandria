@@ -1,0 +1,22 @@
+{
+    "name": "alexandria",
+    "version": "1.0.0",
+    "description": "Backs up files from the internet, allows taking snapshots and looking at past ones.",
+    "main": "index.js",
+    "scripts": {
+        "start": "node ."
+    },
+    "keywords": [
+        "files",
+        "Gigo_G",
+        "alexandria",
+        "http",
+        "https"
+    ],
+    "author": "Gigo_G",
+    "license": "ISC",
+    "dependencies": {
+        "nodemon": "^2.0.16",
+        "uuid": "^8.3.2"
+    }
+}
