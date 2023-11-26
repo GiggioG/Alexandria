@@ -11,10 +11,13 @@
 ```
 (replace the `8080` with your prefered port)
 
-3.If you want to access it from a device, different from your computer, but on the same network, first **find your local IP address.**  
+3. If you want to access it from a device, different from your computer, but on the same network, first **find your local IP address.**  
 If you want it open to the internet, find info about how to do that (port-forward or something similar), then **find your public IP address.**  
 If you want to access the interface from your own device, then use **"localhost"**.  
 Finally, open the interface on `http://<address>:<port>`.
+
+4. Optionally, you can install plugins. You can learn how to do that in the [documentation](Docs.md#installing-a-plugin).
+
 ## Interface overview
 ### Main page
 It lists all of the files on this instance and allows you to open either:
@@ -26,10 +29,17 @@ for each one. There is also a `Pick Random` button, which opens a random file's 
 Every file on an Alexandria instance has one, located on `http://<address>:<port>/file?id=<file id>`.
 It Has links to the source of the file and to all its snapshots ("Versions").  
 There are buttons for **Deleting**, **Renaming** and **Updating**(fetching a new snapshot) the file.
+
+This is just the default display. If a plugin has marked the file to be viewn with it or tells the server it wants to, the file will be displayed by the plugin.
 ### Search page
 Allows you to search the files on the instance. You can search by **File ID(UUID)**, **File name** or **File source**. The search is case-insensitive.
 This page also has an `Open Random` button, which chooses a random result and opens it.
 ### Add file page
 On this page you add files to your Alexandria instance. You need to specify a name and a url (only supports `http://` and `https://` schemes).
-When you create a file, it automatically creates the first snapshot ("Version"). 
+When you create a file, it automatically creates the first snapshot ("Version").
+
 **REMEMBER [THIS](#warning-snapshots-are-not-automatic---a-user-has-to-take-them-manually) DISCLAIMER**
+
+If you have plugins installed, there will be a list with all the plugins capable of adding the file.
+## Developer documentation
+Please refer to [Docs.md](Docs.md).

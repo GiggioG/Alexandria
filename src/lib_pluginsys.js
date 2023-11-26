@@ -1,7 +1,7 @@
 module.exports.initPluginSys = function() {
     const fs = require("fs");
-    if (!fs.existsSync("../plugins")) { fs.mkdirSync("../plugins"); }
-    if (!fs.existsSync("../plugins.json")) { fs.writeFileSync("../plugins.json", "{}"); }
+    if (!fs.existsSync("./plugins")) { fs.mkdirSync("./plugins"); }
+    if (!fs.existsSync("./plugins.json")) { fs.writeFileSync("./plugins.json", "{}"); }
     let pluginManifests = require("../plugins.json");
     let plugins = {};
     for(p in pluginManifests){
@@ -31,9 +31,9 @@ module.exports.getPluginSymbol = function(plugin, sym){
 module.exports.filterPluginsTag = function(tag=null){
     let sel = Object.keys(plugins);
     if (tag != null) {
-        sel = ret.filter(p => plugins[p].tags.includes(tag));
+        sel = sel.filter(p => plugins[p].tags.includes(tag));
     }
     let ret = {};
-    sel.forEach(p => ret[p] = plugins[p]);
+    sel.forEach(p => ret[p] = Object.assign({}, plugins[p]));
     return ret;
 }
