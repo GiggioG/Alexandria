@@ -2,22 +2,24 @@ const crypto = require("crypto");
 const fs = require("fs");
 const http = require("http");
 const https = require("https");
-module.exports.timestamp = function() {
+module.exports.timestamp = function () {
     return Math.floor(Date.now() / 1000);
 };
-module.exports.code404 = function(res) {
+module.exports.code404 = function (res) {
     res.writeHead(404);
     res.end("Error 404: Not found");
     return;
 }
-module.exports.initTempDir = function() {
+module.exports.initTempDir = function () {
     const fs = require("fs");
     if (fs.existsSync("tmp") && fs.lstatSync("tmp").isDirectory()) {
-        fs.rmSync("tmp", { recursive: true, force: true });
+        try {
+            fs.rmSync("tmp", { recursive: true, force: true });
+        } catch (e) { }
     }
     fs.mkdirSync("tmp");
 }
-module.exports.hostnameExists = async function(hostname) {
+module.exports.hostnameExists = async function (hostname) {
     const dnsPromises = require('dns').promises;
     try {
         await dnsPromises.lookup(hostname);

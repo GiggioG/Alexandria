@@ -63,7 +63,9 @@ const update = id => new Promise((res, rej) => {
         .then(({ hash, type }) => {
             if (db[id].hash == hash) {
                 db[id].versionTimes[db[id].versionTimes.length - 1] = timestamp();
-                fs.rmSync(`./tmp/${tmpFilename}`);
+                try {
+                    fs.rmSync(`./tmp/${tmpFilename}`);
+                } catch (e) { }
                 res(false);
                 return;
             }
@@ -138,7 +140,9 @@ function api_search(by, search, res) {
 }
 
 function api_del(id, res) {
-    fs.rmSync(`db/${id}`, { recursive: true, force: true });
+    try {
+        fs.rmSync(`db/${id}`, { recursive: true, force: true });
+    } catch (e) { }
     delete db[id];
     saveDB();
     res.end("true");
