@@ -14,7 +14,7 @@ const { serialise } = require("./lib_serialise.js");
 const config = require("../config.json");
 
 initDB();
-initPluginSys(); console.log(plugins);
+initPluginSys();
 initTempDir();
 setInterval(saveDB, 10 * 1000);
 
@@ -52,13 +52,14 @@ const add = ({ uri, name, adder = null }) => new Promise((res, rej) => {
             fs.mkdirSync(`./db/${id}`);
             fs.renameSync(`./tmp/${tmpFilename}`, `./db/${id}/v0`);
             db[id] = obj;
+            saveDB();
             res(id);
         })
         .catch(rej);
 });
 const update = id => new Promise((res, rej) => {
     let tmpFilename = uuid();
-    request(db[id].uri, tmpFilename)
+    getPluginRequestFunction(db[id].pluginData.addedWith)(db[id].uri, tmpFilename, db[id].pluginData)
         .then(({ hash, type }) => {
             if (db[id].hash == hash) {
                 db[id].versionTimes[db[id].versionTimes.length - 1] = timestamp();
@@ -71,6 +72,7 @@ const update = id => new Promise((res, rej) => {
             db[id].version++;
             db[id].hash = hash;
             db[id].type = type;
+            saveDB();
             res(hash);
         })
         .catch(rej);
@@ -78,45 +80,37 @@ const update = id => new Promise((res, rej) => {
 
 function api_get(id, ver, headers, res) {
     let size = fs.statSync(`./db/${id}/v${ver}`).size;
-    if (db[id].type.startsWith("video/") || db[id].type.startsWith("audio/")) {
-        if (headers["range"]) {
-            if (headers["range"].startsWith("bytes=")) {
-                let range_txt = headers["range"].slice("bytes=".length);
-                let range = range_txt.split("-");
-                range[0] = Number(range[0]);
-                range[1] = (range[1].length > 0 ? Number(range[1]) : size - 1);
-                if (range[0] >= size || range[1] >= size) {
-                    res.writeHead(416, {
-                        "content-type": db[id].type,
-                        "content-length": size,
-                        "Accept-Ranges": "bytes"
-                    });
-                    res.end();
-                    return;
-                }
-                res.writeHead(206, {
+    if (headers["range"]) {
+        if (headers["range"].startsWith("bytes=")) {
+            let range_txt = headers["range"].slice("bytes=".length);
+            let range = range_txt.split("-");
+            range[0] = Number(range[0]);
+            range[1] = (range[1].length > 0 ? Number(range[1]) : size - 1);
+            if (range[0] >= size || range[1] >= size) {
+                res.writeHead(416, {
                     "content-type": db[id].type,
-                    "content-length": range[1] - range[0] + 1, //size,
-                    "Accept-Ranges": "bytes",
-                    "Content-Range": `bytes ${range[0]}-${range[1]}/${size}`
+                    "content-length": size,
+                    "Accept-Ranges": "bytes"
                 });
-                fs.createReadStream(`./db/${id}/v${ver}`, {
-                    start: range[0],
-                    end: range[1]
-                }).pipe(res);
+                res.end();
+                return;
             }
-        } else {
-            res.writeHead(200, {
+            res.writeHead(206, {
                 "content-type": db[id].type,
-                "content-length": size,
-                "Accept-Ranges": "bytes"
+                "content-length": range[1] - range[0] + 1, //size,
+                "Accept-Ranges": "bytes",
+                "Content-Range": `bytes ${range[0]}-${range[1]}/${size}`
             });
-            fs.createReadStream(`./db/${id}/v${ver}`).pipe(res);
+            fs.createReadStream(`./db/${id}/v${ver}`, {
+                start: range[0],
+                end: range[1]
+            }).pipe(res);
         }
     } else {
         res.writeHead(200, {
             "content-type": db[id].type,
-            "content-length": size
+            "content-length": size,
+            "Accept-Ranges": "bytes"
         });
         fs.createReadStream(`./db/${id}/v${ver}`).pipe(res);
     }
@@ -160,9 +154,9 @@ function api_rename(id, name, res) {
     res.end("true");
 }
 
-function api_plugins(tag=null, res) {
+function api_plugins(tag = null, res) {
     let list = filterPluginsTag(tag);
-    for(k in list){
+    for (k in list) {
         delete list[k]["symbols"];
     }
     res.end(JSON.stringify(list));
@@ -178,9 +172,9 @@ function api_pluginSymbol(plugin, symbol, res) {
     res.end(serialise(sym));
 }
 
-function api_getFileViewer(id, res){
-    for(p in plugins){
-        if(getPluginSymbol(p, "fileViewerPred")(db[id])){
+function api_getFileViewer(id, res) {
+    for (p in plugins) {
+        if (getPluginSymbol(p, "fileViewerPred")(db[id])) {
             res.end(p);
             return;
         }
@@ -340,7 +334,7 @@ function api(req, res) {
             res.end("This plugin doesn't contain such symbol");
         }
         api_pluginSymbol(query.plugin, query.symbol, res);
-    } else if(endpoint == "getFileViewer"){
+    } else if (endpoint == "getFileViewer") {
         if (!query.id) {
             res.writeHead(400);
             res.end("Must include \"id\" query parameter");
@@ -352,7 +346,7 @@ function api(req, res) {
             return;
         }
         api_getFileViewer(query.id, res);
-    }else {
+    } else {
         code404(res);
     }
 }
