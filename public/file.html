@@ -29,6 +29,7 @@
     <ul id="vers"></ul>
     <script>
         let id = null;
+        let file = null;
 
         {
             var vars = window.location.search.substring(1).split('&');
@@ -81,11 +82,31 @@
                     location.reload();
                 })
                 .catch(console.err);
-        })
+        });
+
+        async function viewWith(fileViewer) {
+            let viewFunc = await getPluginSymbol(fileViewer, "viewFile");
+            viewFunc(file);
+        }
+
+        async function view(){
+            if (file.pluginData["viewWith"]) {
+                viewWith(file.pluginData["viewWith"]);
+                return;
+            }
+            fetch(`${location.origin}/api/getFileViewer?id=${id}`)
+                .then(r => r.text())
+                .then(p => {
+                    if(p == "null"){ return; }
+                    viewWith(p);
+                }).catch(console.err);
+        }
 
         fetch(`${location.origin}/api/meta?id=${id}`)
             .then(r => r.json())
             .then(m => {
+                console.log(m);
+                file = m;
                 document.title = `${m.name} - Alexandria`;
                 qs("h1#title").innerText = m.name;
                 if (m.type != "null") {
@@ -97,18 +118,19 @@
                 qs("a#src").innerText = `Source: ${(new URL(m.uri)).hostname}`;
                 qs("a#latest").innerText = `${location.origin}/api/get?id=${id}`;
                 qs("a#latest").href = `${location.origin}/api/get?id=${id}`;
-                qs("h2#versions").innerText = `Other versions: ${m.version+1}`;
+                qs("h2#versions").innerText = `Other versions: ${m.version + 1}`;
                 for (let i = m.version; i >= 0; i--) {
                     let li = el("li");
                     let a = el("a");
                     a.target = "_blank";
-                    a.innerText = `Version ${i+1} ${i==m.version?"(Latest)":""}`;
+                    a.innerText = `Version ${i + 1} ${i == m.version ? "(Latest)" : ""}`;
                     a.href = `${location.origin}/api/get?id=${id}&v=${i}`;
                     let sub = el("sub", new Date(m.versionTimes[i] * 1000).toLocaleString(), "sub");
                     li.appendChild(a);
                     li.appendChild(sub);
                     qs("ul#vers").appendChild(li);
                 }
+                view();
             })
             .catch(() => {
                 location.href = `${location.origin}/`;

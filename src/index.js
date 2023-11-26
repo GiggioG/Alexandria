@@ -1,44 +1,31 @@
 const http = require("http");
 const https = require("https");
 const fs = require("fs");
-const uuid = require("uuid").v4;
+const uuid = require("crypto").randomUUID;
 const path = require("path").posix;
 const crypto = require("crypto");
 const url = require("url");
 const qs = require("querystring");
-const { timestamp, code404, initTempDir, hostnameExists } = require("./lib_util.js");
+const { timestamp, code404, initTempDir, request } = require("./lib_util.js");
 const { initDB, saveDB } = require("./lib_db.js");
+const { initPluginSys, getPluginSymbol, filterPluginsTag } = require("./lib_pluginsys.js");
+const { serialise } = require("./lib_serialise.js");
 
-const config = require("./config.json");
+const config = require("../config.json");
 
 initDB();
+initPluginSys(); console.log(plugins);
 initTempDir();
 setInterval(saveDB, 10 * 1000);
 
-const request = (uri, file) => new Promise(async(res, rej) => {
-    let parsed_url;
-    try {
-        parsed_url = new URL(uri);
-    } catch (e) { rej(e); return; }
-    if (!parsed_url) { rej("Invalid uri"); return; }
-    if (!(await hostnameExists(parsed_url.hostname))) { rej("No such hostname"); return; }
-    let hash = crypto.createHash("sha256");
-    let stream = fs.createWriteStream(`./tmp/${file}`);
-    (parsed_url.protocol.slice(0, -1) == "http" ? http : https).request(uri, resp => {
-        let type = resp.headers["content-type"] ? resp.headers["content-type"] : "null";
-        resp.on("data", d => {
-            hash.update(d);
-            stream.write(d);
-        });
-        resp.on("end", () => {
-            res({
-                hash: hash.digest("base64"),
-                type
-            });
-        });
-    }).end();
-});
-const add = ({ uri, name }) => new Promise((res, rej) => {
+function getPluginRequestFunction(plugin) {
+    if (plugin == null) {
+        return request;
+    }
+    return getPluginSymbol(plugin, "request");
+}
+
+const add = ({ uri, name, adder = null }) => new Promise((res, rej) => {
     if (name.length == 0) {
         res.writeHead(400);
         res.end("Name can not be empty");
@@ -53,29 +40,33 @@ const add = ({ uri, name }) => new Promise((res, rej) => {
         version: 0,
         id,
         hash: null,
+        pluginData: {},
         type: "null"
     };
-    request(uri, id)
+    let tmpFilename = uuid();
+    getPluginRequestFunction(adder)(uri, tmpFilename, obj.pluginData)
         .then(({ hash, type }) => {
             obj.hash = hash;
             obj.type = type;
             obj.versionTimes.push(timestamp());
             fs.mkdirSync(`./db/${id}`);
-            fs.renameSync(`./tmp/${id}`, `./db/${id}/v0`);
+            fs.renameSync(`./tmp/${tmpFilename}`, `./db/${id}/v0`);
             db[id] = obj;
             res(id);
         })
         .catch(rej);
 });
 const update = id => new Promise((res, rej) => {
-    request(db[id].uri, id)
+    let tmpFilename = uuid();
+    request(db[id].uri, tmpFilename)
         .then(({ hash, type }) => {
             if (db[id].hash == hash) {
                 db[id].versionTimes[db[id].versionTimes.length - 1] = timestamp();
+                fs.rmSync(`./tmp/${tmpFilename}`);
                 res(false);
                 return;
             }
-            fs.renameSync(`./tmp/${id}`, `./db/${id}/v${db[id].version+1}`);
+            fs.renameSync(`./tmp/${tmpFilename}`, `./db/${id}/v${db[id].version + 1}`);
             db[id].versionTimes.push(timestamp());
             db[id].version++;
             db[id].hash = hash;
@@ -93,8 +84,8 @@ function api_get(id, ver, headers, res) {
                 let range_txt = headers["range"].slice("bytes=".length);
                 let range = range_txt.split("-");
                 range[0] = Number(range[0]);
-                range[1] = (range[1].length > 0 ? Number(range[1]) : size);
-                if (range[0] > size || range[1] > size) {
+                range[1] = (range[1].length > 0 ? Number(range[1]) : size - 1);
+                if (range[0] >= size || range[1] >= size) {
                     res.writeHead(416, {
                         "content-type": db[id].type,
                         "content-length": size,
@@ -105,9 +96,9 @@ function api_get(id, ver, headers, res) {
                 }
                 res.writeHead(206, {
                     "content-type": db[id].type,
-                    "content-length": range[1] - range[0], //size,
+                    "content-length": range[1] - range[0] + 1, //size,
                     "Accept-Ranges": "bytes",
-                    "Content-Range": `bytes ${range[0]}-${range[1]}/${range[1]+1}`
+                    "Content-Range": `bytes ${range[0]}-${range[1]}/${size}`
                 });
                 fs.createReadStream(`./db/${id}/v${ver}`, {
                     start: range[0],
@@ -153,8 +144,8 @@ function api_search(by, search, res) {
 }
 
 function api_del(id, res) {
-    delete db[id];
     fs.rmSync(`db/${id}`, { recursive: true, force: true });
+    delete db[id];
     saveDB();
     res.end("true");
 }
@@ -167,6 +158,34 @@ function api_rename(id, name, res) {
     }
     db[id].name = name;
     res.end("true");
+}
+
+function api_plugins(tag=null, res) {
+    let list = filterPluginsTag(tag);
+    for(k in list){
+        delete list[k]["symbols"];
+    }
+    res.end(JSON.stringify(list));
+}
+
+function api_pluginSymbol(plugin, symbol, res) {
+    if ((!plugins[plugin].tags.includes("webSymbols")) || (!plugins[plugin].webSymbols.includes(symbol))) {
+        res.writeHead(403);
+        res.end("This symbol is server-side only.");
+        return;
+    }
+    let sym = getPluginSymbol(plugin, symbol);
+    res.end(serialise(sym));
+}
+
+function api_getFileViewer(id, res){
+    for(p in plugins){
+        if(getPluginSymbol(p, "fileViewerPred")(db[id])){
+            res.end(p);
+            return;
+        }
+    }
+    res.end("null");
 }
 
 function api(req, res) {
@@ -184,7 +203,11 @@ function api(req, res) {
             res.end("Must include \"name\" query parameter");
             return;
         }
-        add({ uri: query.uri, name: query.name })
+        let addParams = { uri: query.uri, name: query.name };
+        if (query.adder && plugins[query.adder].tags.includes("fileAdder")) {
+            addParams.adder = query.adder;
+        }
+        add(addParams)
             .then(r => {
                 res.writeHead(200);
                 res.end(`${r}`);
@@ -294,7 +317,42 @@ function api(req, res) {
             return;
         }
         api_rename(query.id, query.name, res);
-    } else {
+    } else if (endpoint == "plugins") {
+        api_plugins(query.tag || null, res);
+    } else if (endpoint == "pluginSymbol") {
+        if (!query.plugin) {
+            res.writeHead(400);
+            res.end("Must include \"plugin\" query parameter");
+            return;
+        }
+        if (!query.symbol) {
+            res.writeHead(400);
+            res.end("Must include \"symbol\" query parameter");
+            return;
+        }
+        if (!plugins[query.plugin]) {
+            res.writeHead(404);
+            res.end("No plugin with such id");
+            return;
+        }
+        if (!plugins[query.plugin].symbols[query.symbol]) {
+            res.writeHead(404);
+            res.end("This plugin doesn't contain such symbol");
+        }
+        api_pluginSymbol(query.plugin, query.symbol, res);
+    } else if(endpoint == "getFileViewer"){
+        if (!query.id) {
+            res.writeHead(400);
+            res.end("Must include \"id\" query parameter");
+            return;
+        }
+        if (!db[query.id]) {
+            res.writeHead(404);
+            res.end("No file with such id");
+            return;
+        }
+        api_getFileViewer(query.id, res);
+    }else {
         code404(res);
     }
 }
@@ -306,7 +364,7 @@ function public(req, res) {
     if (pathname == "/") {
         fs.createReadStream("public/index.html").pipe(res);
     } else {
-        let public = path.join(__dirname, "public").replace(/\\/g, '/');
+        let public = path.join(__dirname, "../public").replace(/\\/g, '/');
         let filepath = path.join(public, pathname);
         if (!filepath.startsWith(public)) {
             code404(res);

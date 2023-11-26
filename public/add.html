@@ -22,7 +22,24 @@
     <input type="url" id="uri" pattern="(https|http)://.*" placeholder="Source uri..." style="width:calc(100% - 50px);">
     <br>
     <input type="button" id="submit" value="Add">
+    <select name="fileAdder" id="fileAdder" value="default">
+        <option value="default">Add (default behaviour)</option>
+    </select>
     <script>
+        let fileAdderSelect = qs("select#fileAdder");
+        (async () => {
+            let fileAdders = await getPlugins("fileAdder");
+            if (fileAdders.length == 0) {
+                fileAdderSelect.style.display = "none";
+                return;
+            }
+            console.log(fileAdders);
+            for(p in fileAdders){
+                let option = el("option", `Add with ${fileAdders[p].name}`);
+                option.value = p;
+                fileAdderSelect.append(option);
+            }
+        })();
         qs("input#submit").addEventListener("click", () => {
             let name = qs("input#name").value;
             if (name.length == 0) {
@@ -34,8 +51,14 @@
                 return;
             }
             let uri = qs("input#uri").value;
+            let fileAdder = qs("select#fileAdder").value;
+            let fileAdderQueryString = "";
+            if(fileAdder != "default"){
+                fileAdderQueryString = `&adder=${fileAdder}`;
+            }
             let status;
-            fetch(`${location.origin}/api/add?uri=${uri}&name=${name}`)
+            spin("Adding file...")
+            fetch(`${location.origin}/api/add?uri=${uri}&name=${name}${fileAdderQueryString}`)
                 .then(r => {
                     status = r.status;
                     return r.text();

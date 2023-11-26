@@ -21,14 +21,14 @@ function addFile(id, parent) {
         .then(d => d.json())
         .then(f => {
             let li = el("li");
-            let a1 = el("a", null, "filelink");
-            a1.href = `/api/get?id=${id}`;
-            a1.target = "_blank";
+            let a1 = el("a");
+            a1.href = `/file?id=${id}`;
             let filename = el("span", f.name, "filename");
             a1.appendChild(filename);
             li.appendChild(a1);
-            let a2 = el("a", " (Info)", "small");
-            a2.href = `/file?id=${id}`;
+            let a2 = el("a", " (Raw)", "filelink small");
+            a2.href = `/api/get?id=${id}`;
+            a2.target = "_blank";
             li.appendChild(a2);
             li.appendChild(el("br"));
             let mimetype = el("span", `(${f.type.split(';')[0]})`, "sub");
@@ -46,3 +46,16 @@ function randel(list) {
 function spin(text) {
     document.body.innerHTML = `<h1>${text}</h1><img style="width: min(90vh, 90vw);" src="/spinner.gif">`;
 }
+
+const getPlugins = (tag) => new Promise((resolve, reject) => {
+    fetch(`${location.origin}/api/plugins?tag=${tag}`)
+        .then(d => d.json())
+        .then(j => resolve(j));
+});
+
+const getPluginSymbol = (plugin, symbol) => new Promise((resolve, reject)=>{
+    fetch(`${location.origin}/api/pluginSymbol?plugin=${plugin}&symbol=${symbol}`)
+        .then(d=>d.text())
+        .then(t=>resolve(eval(t)))
+        .catch(e=>reject(e));
+});
