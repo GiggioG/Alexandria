@@ -8,15 +8,26 @@
 ## Api routes
 ### /api/add
 Adds a file to Alexandria and downloads its first version.
+If you want to add a file from the internet: use these parameters with a `GET` request:
 | Query Parameter | Meaning |
 |-|-|
 | uri | uri of file to be downloaded |
 | name | a name for the file (not empty) |
 | [adder?](#fileadder) | a plugin's id to use in order to add the file |
 
+For uploading a file directly, do a `POST` request.
+| Query Parameter | Meaning |
+|-|-|
+| uri | should be "null" |
+| name | a name for the file (not empty) |
+| [adder?](#fileadder) | a plugin's id to use in order to add the file |
+| type? | mime type of the added file |
+The file contents should be in the request body.
+
 Returns `id` of the file if successful, and the error if unsuccessful.
 ### /api/update
 Tries to update the file with a new version.
+You cannot update a locally uploaded file.  
 Fails if new file hash matches previous version.
 If the file was downloaded with a plugin it uses the same plugin to update it.
 | Query Parameter | Meaning |
@@ -95,7 +106,7 @@ The db index is contained in the `index.json` file in the `db` in which the keys
 A file entry is a value in the db index. It is a json object with the following fields:
 | Field | Meaning |
 |-|-|
-| uri | The uri where the file was downloaded from. |
+| uri | The uri where the file was downloaded from. (null for files uploaded directly) |
 | name | The name of the file |
 | versionTimes | A JSON array of the unix timestamps of each version |
 | version | The current version of the file |
@@ -181,11 +192,14 @@ This means that the plugin has the ability to change how a file is added and dow
 | Symbols | function [request](#the-request-function)(uri, tmpFileId, pluginData) |
 
 ##### The request function
-This function takes a `uri`, the name of the temporary file `tmpFileId` and a reference to the `pluginData` object of the file. It can be async.
+This function takes a `source`, the name of the temporary file `tmpFileId`, a reference to the `pluginData` object of the file, and a boolean `isLocal`, which is true if the file is being uploaded directly to Alexandria. It can be async.
 
-Its job is to download the data at the `uri` as it sees fit into `./tmp/${tmpFileId}`. The function should set the `addedWith` field on the `pluginData` object to the id of the plugin. Optionally, if it has the `fileViewer` tag, it can set the `viewWith` field to its id to ensure that the file is always shown with this plugin.
+If `isLocal` is false, then the `source` is a uri. If it is true, then it is the name of a file is already downloaded to `./tmp/${source}`.
 
-This function should return an object with fields `type` - MIME type of the file and `hash` - sha256 hash of the file.
+Its job is to download the data at the `source` as it sees fit into `./tmp/${tmpFileId}`. The function should set the `addedWith` field on the `pluginData` object to the id of the plugin. Optionally, if it has the `fileViewer` tag, it can set the `viewWith` field to its id to ensure that the file is always shown with this plugin.
+
+This function should return an object with fields `receivedType` - MIME type of the file and `hash` - sha256 hash of the file.
+If there is no MIME type found, then `receivedType` should be `null`.
 
 To help you in writing this function you can include the default download function from Alexandria's `lib_util.js` file.
 ```js

@@ -109,13 +109,20 @@
                 file = m;
                 document.title = `${m.name} - Alexandria`;
                 qs("h1#title").innerText = m.name;
-                if (m.type != "null") {
+                if (m.type != null) {
                     qs("sub#mimetype").innerText = `(${m.type.split(';')[0]})`;
                 } else {
                     qs("sub#mimetype").remove();
                 }
-                qs("a#src").href = m.uri;
-                qs("a#src").innerText = `Source: ${(new URL(m.uri)).hostname}`;
+                if(m.uri != null){
+                    qs("a#src").href = m.uri;
+                    qs("a#src").innerText = `Source: ${(new URL(m.uri)).hostname}`;
+                }else{
+                    qs("button#update").remove();
+                    let span = el("span", "Source: uploaded directly");
+                    document.querySelector("a#src").replaceWith(span);
+                }
+
                 qs("a#latest").innerText = `${location.origin}/api/get?id=${id}`;
                 qs("a#latest").href = `${location.origin}/api/get?id=${id}`;
                 qs("h2#versions").innerText = `Other versions: ${m.version + 1}`;

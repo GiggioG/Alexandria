@@ -25,7 +25,7 @@ function getPluginRequestFunction(plugin) {
     return getPluginSymbol(plugin, "request");
 }
 
-const add = ({ uri, name, adder = null }) => new Promise((res, rej) => {
+const add = ({ uri, name, adder = null, bodyTmpId = null, type = null}) => new Promise((res, rej) => {
     if (name.length == 0) {
         res.writeHead(400);
         res.end("Name can not be empty");
@@ -41,13 +41,17 @@ const add = ({ uri, name, adder = null }) => new Promise((res, rej) => {
         id,
         hash: null,
         pluginData: {},
-        type: "null"
+        type: type
     };
     let tmpFilename = uuid();
-    getPluginRequestFunction(adder)(uri, tmpFilename, obj.pluginData)
-        .then(({ hash, type }) => {
-            obj.hash = hash;
-            obj.type = type;
+    let isLocal = (uri==null);
+    let source = isLocal?bodyTmpId:uri;
+    getPluginRequestFunction(adder)(source, tmpFilename, obj.pluginData, isLocal)
+        .then(results => {
+            obj.hash = results.hash;
+            if(results.receivedType){
+                obj.type = results.receivedType;
+            }
             obj.versionTimes.push(timestamp());
             fs.mkdirSync(`./db/${id}`);
             fs.renameSync(`./tmp/${tmpFilename}`, `./db/${id}/v0`);
@@ -58,6 +62,7 @@ const add = ({ uri, name, adder = null }) => new Promise((res, rej) => {
         .catch(rej);
 });
 const update = id => new Promise((res, rej) => {
+    if(db[id].uri == null){ rej("You can't update a locally added file."); return; }
     let tmpFilename = uuid();
     getPluginRequestFunction(db[id].pluginData.addedWith)(db[id].uri, tmpFilename, db[id].pluginData)
         .then(({ hash, type }) => {
@@ -191,17 +196,29 @@ function api(req, res) {
     let endpoint = parsed.pathname.slice(5);
     let query = qs.parse(parsed.query);
     if (endpoint == "add") {
-        if (!query.uri) {
+        if(!query["uri"]){
             res.writeHead(400);
             res.end("Must include \"uri\" query parameter");
             return;
         }
+        if(query.uri == "null"){ query.uri = null; }
+        if(query.uri == null && req.method == "GET"){
+            res.writeHead(400);
+            res.end("You must either make a GET request with a uri, or a POST one with a file upload.");
+            return;
+        }
+        if(query.url != null && req.method == "POST"){
+            res.writeHead(400);
+            res.end("You must either make a GET request with a uri, or a POST one with a file upload");
+            return;
+        }
+
         if (!query.name) {
             res.writeHead(400);
             res.end("Must include \"name\" query parameter");
             return;
         }
-        let addParams = { uri: query.uri, name: query.name };
+        let addParams = { uri: query.uri, name: query.name, bodyTmpId: req.bodyTmpId, type: query.type };
         if (query.adder && plugins[query.adder].tags.includes("fileAdder")) {
             addParams.adder = query.adder;
         }
@@ -224,6 +241,11 @@ function api(req, res) {
         if (!db[query.id]) {
             res.writeHead(404);
             res.end("No file with such id");
+            return;
+        }
+        if (db[id].uri == null) {
+            res.writeHead(404);
+            res.end("You can't update a locally added file");
             return;
         }
         update(query.id)
@@ -381,12 +403,17 @@ function public(req, res) {
 }
 
 http.createServer((req, res) => {
-    if (req.url.startsWith("/api/")) {
-        api(req, res);
-        return;
-    } else {
-        public(req, res);
-    }
+    req.bodyTmpId = uuid();
+    let fileStream = fs.createWriteStream(`./tmp/${req.bodyTmpId}`);
+    req.on("data", d => fileStream.write(d));
+    req.on("end", ()=>{
+        if (req.url.startsWith("/api/")) {
+            api(req, res);
+            return;
+        } else {
+            public(req, res);
+        }
+    })
 }).listen(config.port, () => {
     console.log(`listening on port ${config.port}`);
 });

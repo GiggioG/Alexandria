@@ -31,7 +31,7 @@ function addFile(id, parent) {
             a2.target = "_blank";
             li.appendChild(a2);
             li.appendChild(el("br"));
-            let mimetype = el("span", `(${f.type.split(';')[0]})`, "sub");
+            let mimetype = el("span", f.type!=null?`(${f.type.split(';')[0]})`:"unknown file type", "sub");
             li.appendChild(mimetype);
 
             parent.appendChild(li);

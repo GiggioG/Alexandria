@@ -28,26 +28,40 @@ module.exports.hostnameExists = async function (hostname) {
         return false;
     }
 }
-module.exports.request = (uri, tmpFileId) => new Promise(async (res, rej) => {
-    let parsed_url;
-    try {
-        parsed_url = new URL(uri);
-    } catch (e) { rej(e); return; }
-    if (!parsed_url) { rej("Invalid uri"); return; }
-    if (!(await this.hostnameExists(parsed_url.hostname))) { rej("No such hostname"); return; }
-    let hash = crypto.createHash("sha256");
-    let stream = fs.createWriteStream(`./tmp/${tmpFileId}`);
-    (parsed_url.protocol.slice(0, -1) == "http" ? http : https).request(uri, resp => {
-        let type = resp.headers["content-type"] ? resp.headers["content-type"] : "null";
-        resp.on("data", d => {
-            hash.update(d);
-            stream.write(d);
+module.exports.request = (source, tmpFileId, pluginData, isLocal = false) => new Promise(async (res, rej) => {
+    if (isLocal) {
+        let stream = fs.createReadStream(`./tmp/${source}`);
+        let hash = crypto.createHash("sha256");
+        stream.pipe(hash);
+        stream.on("end", () => {
+            fs.rename(`./tmp/${source}`, `./tmp/${tmpFileId}`, ()=>{
+                res({
+                    hash: hash.digest("base64"),
+                    receivedType: null
+                });
+            })
         });
-        resp.on("end", () => {
-            res({
-                hash: hash.digest("base64"),
-                type
+    } else {
+        let parsed_url;
+        try {
+            parsed_url = new URL(source);
+        } catch (e) { rej(e); return; }
+        if (!parsed_url) { rej("Invalid uri"); return; }
+        if (!(await this.hostnameExists(parsed_url.hostname))) { rej("No such hostname"); return; }
+        let hash = crypto.createHash("sha256");
+        let stream = fs.createWriteStream(`./tmp/${tmpFileId}`);
+        (parsed_url.protocol.slice(0, -1) == "http" ? http : https).request(source, resp => {
+            let type = resp.headers["content-type"] ? resp.headers["content-type"] : null;
+            resp.on("data", d => {
+                hash.update(d);
+                stream.write(d);
             });
-        });
-    }).end();
+            resp.on("end", () => {
+                res({
+                    hash: hash.digest("base64"),
+                    receivedType: type
+                });
+            });
+        }).end();
+    }
 });

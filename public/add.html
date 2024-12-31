@@ -21,6 +21,9 @@
     <br>
     <input type="url" id="uri" pattern="(https|http)://.*" placeholder="Source uri..." style="width:calc(100% - 50px);">
     <br>
+    <label for="fileUpload"> or upload a file</label>
+    <input type="file" id="fileUpload">
+    <br>
     <input type="button" id="submit" value="Add">
     <select name="fileAdder" id="fileAdder" value="default">
         <option value="default">Add (default behaviour)</option>
@@ -40,12 +43,7 @@
                 fileAdderSelect.append(option);
             }
         })();
-        qs("input#submit").addEventListener("click", () => {
-            let name = qs("input#name").value;
-            if (name.length == 0) {
-                alert("The file name must not be empty.");
-                return;
-            }
+        function addWithUri(name){
             if (!qs("input#uri").checkValidity()) {
                 alert("This is not a valid uri.");
                 return;
@@ -71,6 +69,48 @@
                     }
                 })
                 .catch(console.err);
+        }
+        function addWithFileUpload(name){
+            let fileAdder = qs("select#fileAdder").value;
+            let fileAdderQueryString = "";
+            if(fileAdder != "default"){
+                fileAdderQueryString = `&adder=${fileAdder}`;
+            }
+            let status;
+            let file = qs("input#fileUpload").files[0];
+            spin("Adding file...");
+            fetch(`${location.origin}/api/add?uri=null&name=${name}${fileAdderQueryString}&type=${file.type}`, {
+                method: "POST",
+                body: file
+            })
+                .then(r => {
+                    status = r.status;
+                    return r.text();
+                })
+                .then(r => {
+                    if (status != 200) {
+                        alert(r);
+                    } else {
+                        location.href = `${location.origin}/file?id=${r}`;
+                    }
+                })
+                .catch(console.err);
+        }
+        qs("input#submit").addEventListener("click", () => {
+            let name = qs("input#name").value;
+            if (name.length == 0) {
+                alert("The file name must not be empty.");
+                return;
+            }
+            if(qs("input#uri").value.length > 0 && qs("input#fileUpload").files.length > 0){
+                alert("You must only add a uri or select a file, but not both.");
+                return;
+            }
+            if(qs("input#uri").value.length > 0 || qs("input#fileUpload").files.length == 0){
+                addWithUri(name);
+            }else{
+                addWithFileUpload(name);
+            }
         });
     </script>
 </body>
