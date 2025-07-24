@@ -42,7 +42,7 @@
         qs("input#submit").addEventListener("click", () => {
             let by = qs("select#type").value;
             let search = qs("input#search").value;
-            fetch(`${location.origin}/api/search?by=${by}&search=${search}`)
+            fetch(`${location.origin}/api/search?by=${by}&search=${encodeURIComponent(search)}`)
                 .then(r => r.json())
                 .then(l => {
                     qs("ul#results").innerHTML = "";

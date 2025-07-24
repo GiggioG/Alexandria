@@ -76,7 +76,7 @@
                 return;
             }
             spin("Renaming...");
-            fetch(`${location.origin}/api/ren?id=${id}&name=${newname}`)
+            fetch(`${location.origin}/api/ren?id=${id}&name=${encodeURIComponent(newname)}`)
                 .then(r => r.text())
                 .then(r => {
                     location.reload();

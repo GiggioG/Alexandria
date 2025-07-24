@@ -203,6 +203,7 @@ function api(req, res) {
             res.end("Must include \"uri\" query parameter");
             return;
         }
+        query.uri = decodeURIComponent(query.uri);
         if(query.uri == "null"){ query.uri = null; }
         if(query.uri == null && req.method == "GET"){
             res.writeHead(400);
@@ -220,6 +221,7 @@ function api(req, res) {
             res.end("Must include \"name\" query parameter");
             return;
         }
+        query.name = decodeURIComponent(query.name);
         let addParams = { uri: query.uri, name: query.name, bodyTmpId: req.bodyTmpId, type: query.type };
         if (query.adder && plugins[query.adder].tags.includes("fileAdder")) {
             addParams.adder = query.adder;
@@ -309,6 +311,7 @@ function api(req, res) {
             res.end("Must include \"search\" query parameter");
             return;
         }
+        query.search = decodeURIComponent(query.search);
         api_search(query.by, query.search, res);
     } else if (endpoint == "del") {
         if (!query.id) {
@@ -338,6 +341,7 @@ function api(req, res) {
             res.end("Must include \"name\" query parameter");
             return;
         }
+        query.name = decodeURIComponent(query.name);
         api_rename(query.id, query.name, res);
     } else if (endpoint == "plugins") {
         api_plugins(query.tag || null, res);

@@ -56,7 +56,7 @@
             }
             let status;
             spin("Adding file...")
-            fetch(`${location.origin}/api/add?uri=${uri}&name=${name}${fileAdderQueryString}`)
+            fetch(`${location.origin}/api/add?uri=${encodeURIComponent(uri)}&name=${encodeURIComponent(name)}${fileAdderQueryString}`)
                 .then(r => {
                     status = r.status;
                     return r.text();
@@ -79,7 +79,7 @@
             let status;
             let file = qs("input#fileUpload").files[0];
             spin("Adding file...");
-            fetch(`${location.origin}/api/add?uri=null&name=${name}${fileAdderQueryString}&type=${file.type}`, {
+            fetch(`${location.origin}/api/add?uri=null&name=${encodeURIComponent(name)}${fileAdderQueryString}&type=${file.type}`, {
                 method: "POST",
                 body: file
             })

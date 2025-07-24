@@ -189,7 +189,7 @@ This means that the plugin has the ability to change how a file is added and dow
 | Type of requirement | Required items |
 |-|-|
 | Tags | `fileAdder` |
-| Symbols | function [request](#the-request-function)(uri, tmpFileId, pluginData) |
+| Symbols | function [request](#the-request-function)(source, tmpFileId, pluginData, isLocal) |
 
 ##### The request function
 This function takes a `source`, the name of the temporary file `tmpFileId`, a reference to the `pluginData` object of the file, and a boolean `isLocal`, which is true if the file is being uploaded directly to Alexandria. It can be async.
