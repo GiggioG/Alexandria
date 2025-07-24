@@ -184,7 +184,8 @@ function api_pluginSymbol(plugin, symbol, res) {
 }
 
 function api_getFileViewer(id, res) {
-    for (p in plugins) {
+    const fileViewers = filterPluginsTag("fileViewer");
+    for (p in fileViewers) {
         if (getPluginSymbol(p, "fileViewerPred")(db[id])) {
             res.end(p);
             return;
@@ -247,7 +248,7 @@ function api(req, res) {
             res.end("No file with such id");
             return;
         }
-        if (db[id].uri == null) {
+        if (db[query.id].uri == null) {
             res.writeHead(404);
             res.end("You can't update a locally added file");
             return;
