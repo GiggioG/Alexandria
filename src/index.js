@@ -124,6 +124,7 @@ function api_get(id, ver, headers, res) {
 }
 
 function api_meta(id, res) {
+    res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(db[id]));
     return;
 }
@@ -132,6 +133,7 @@ function api_list(res) {
     let list = [];
     for (el in db) { list.push(el); }
     list.sort((a, b) => db[a].versionTimes[0] - db[b].versionTimes[0]);
+    res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(list));
 }
 
@@ -143,6 +145,7 @@ function api_search(by, search, res) {
         }
     }
     found.sort((a, b) => db[a].versionTimes[0] - db[b].versionTimes[0]);
+    res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(found));
 }
 
@@ -168,6 +171,7 @@ function api_rename(id, name, res) {
 function api_plugins(tag = null, res) {
     let list = filterPluginsTag(tag);
     list.forEach(e=>delete e["symbols"]);
+    res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(list));
 }
 
@@ -178,6 +182,7 @@ function api_pluginSymbol(plugin, symbol, res) {
         return;
     }
     let sym = getPluginSymbol(plugin, symbol);
+    res.writeHead(200, { "Content-Type": "text/javascript" });
     res.end(serialise(sym));
 }
 
@@ -405,29 +410,45 @@ function api(req, res) {
     }
 }
 
+function getMimeType(filepath) {
+    let ext = path.extname(filepath).toLowerCase();
+    switch (ext) {
+        case ".html": return "text/html";
+        case ".js": return "application/javascript";
+        case ".css": return "text/css";
+        case ".json": return "application/json";
+        case ".png": return "image/png";
+        case ".jpg":
+        case ".jpeg": return "image/jpeg";
+        case ".gif": return "image/gif";
+        case ".svg": return "image/svg+xml";
+        case ".txt": 
+        default:
+            return "text/plain";
+    };
+};
+
 function public(req, res) {
     let parsed = url.parse(req.url);
     let pathname = parsed.pathname;
     let query = qs.parse(parsed.query);
-    if (pathname == "/") {
-        fs.createReadStream("public/index.html").pipe(res);
-    } else {
-        let public = path.join(__dirname, "../public").replace(/\\/g, '/');
-        let filepath = path.join(public, pathname);
-        if (!filepath.startsWith(public)) {
+    if (pathname == "/") { pathname = "/index.html"; }
+    let public = path.join(__dirname, "../public").replace(/\\/g, '/');
+    let filepath = path.join(public, pathname);
+    if (!filepath.startsWith(public)) {
+        code404(res);
+        return;
+    }
+    if (!fs.existsSync(filepath)) {
+        if (filepath.endsWith("/")) { filepath = filepath.slice(0, -1); }
+        filepath += ".html";
+        if (!fs.existsSync(filepath)) {
             code404(res);
             return;
         }
-        if (!fs.existsSync(filepath)) {
-            if (filepath.endsWith("/")) { filepath = filepath.slice(0, -1); }
-            filepath += ".html";
-            if (!fs.existsSync(filepath)) {
-                code404(res);
-                return;
-            }
-        }
-        fs.createReadStream(filepath).pipe(res);
     }
+    res.writeHead(200, {"Content-Type": getMimeType(filepath)});
+    fs.createReadStream(filepath).pipe(res);
 }
 
 http.createServer((req, res) => {
