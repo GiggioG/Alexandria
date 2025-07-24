@@ -131,6 +131,7 @@ function api_meta(id, res) {
 function api_list(res) {
     let list = [];
     for (el in db) { list.push(el); }
+    list.sort((a,b) => db[a].versionTimes[0] - db[b].versionTimes[0]);
     res.end(JSON.stringify(list));
 }
 
@@ -141,6 +142,7 @@ function api_search(by, search, res) {
             found.push(id);
         }
     }
+    found.sort((a,b) => db[a].versionTimes[0] - db[b].versionTimes[0]);
     res.end(JSON.stringify(found));
 }
 

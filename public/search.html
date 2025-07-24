@@ -48,7 +48,9 @@
                     qs("ul#results").innerHTML = "";
                     qs("input#random").disabled = false;
                     l.forEach(id => {
-                        addFile(id, qs("ul#results"));
+                        let rep = document.createElement("li");
+                        qs("ul#results").appendChild(rep);
+                        addFile(id, rep, true);
                     });
                     if (l.length == 0) {
                         qs("ul#results").innerHTML = "<b style=\"color:red\">No results.</b>";

@@ -16,7 +16,7 @@ function qs(sel, all = false) {
     return document.querySelector(sel);
 }
 
-function addFile(id, parent) {
+function addFile(id, container, replace=false) {
     fetch(`${location.origin}/api/meta?id=${id}`)
         .then(d => d.json())
         .then(f => {
@@ -33,8 +33,11 @@ function addFile(id, parent) {
             li.appendChild(el("br"));
             let mimetype = el("span", f.type!=null?`(${f.type.split(';')[0]})`:"unknown file type", "sub");
             li.appendChild(mimetype);
-
-            parent.appendChild(li);
+            if(replace){
+                container.replaceWith(li);
+            }else{
+                container.appendChild(li);
+            }
         })
         .catch(console.err);
 }

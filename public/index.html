@@ -30,7 +30,9 @@
             .then(d => d.json())
             .then(l => {
                 l.forEach(id => {
-                    addFile(id, list);
+                    let rep = document.createElement("li");
+                    list.appendChild(rep);
+                    addFile(id, rep, true);
                 });
                 if (l.length == 0) {
                     qs("button#random").remove();
