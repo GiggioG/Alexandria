@@ -11,15 +11,15 @@ Adds a file to Alexandria and downloads its first version.
 If you want to add a file from the internet: use these parameters with a `GET` request:
 | Query Parameter | Meaning |
 |-|-|
-| uri | uri of file to be downloaded |
-| name | a name for the file (not empty) |
+| uri | uri of file to be downloaded (use `encodeURIComponent`) |
+| name | a name for the file (not empty) (use `encodeURIComponent`) |
 | [adder?](#fileadder) | a plugin's id to use in order to add the file |
 
 For uploading a file directly, do a `POST` request.
 | Query Parameter | Meaning |
 |-|-|
 | uri | should be "null" |
-| name | a name for the file (not empty) |
+| name | a name for the file (not empty) (use `encodeURIComponent`) |
 | [adder?](#fileadder) | a plugin's id to use in order to add the file |
 | type? | mime type of the added file |
 The file contents should be in the request body.
@@ -59,7 +59,7 @@ in the corresponding field in order for the file to match the search.
 | Query Parameter | Meaning |
 |-|-|
 | by | "id", "name" or "uri" |,
-| search | searh string |
+| search | searh string (use `encodeURIComponent`) |
 ### /api/del
 Deletes a file from Alexandria.
 | Query Parameter | Meaning |
@@ -72,7 +72,7 @@ Renames a file.
 | Query Parameter | Meaning |
 |-|-|
 | id | id of the file |
-| name | the new name of the file (not empty) |
+| name | the new name of the file (not empty) (use `encodeURIComponent`) |
 
 Returns `"true"` on success.
 ### /api/plugins
@@ -81,7 +81,7 @@ Lists all active plugins on the server that have a certain tag. If `tag` is ommi
 |-|-|
 | tag? | tag for search |
 
-Returns their [manifests](#manifest) as in the plugin registry, but with the `symbols` field removed to protect server privacy.
+Returns an array of their [manifests](#manifest) as in the plugin registry, but with the `symbols` field removed to protect server privacy.
 ### /api/pluginSymbol
 Returns a [web symbol](#terminology) from a certain plugin. It is serialised to be `eval`-ed later.
 | Query Parameter | Meaning |
@@ -90,6 +90,14 @@ Returns a [web symbol](#terminology) from a certain plugin. It is serialised to 
 | symbol | the symbol that you want to get |
 
 Returns javascript that when `eval`-ed evaluates to the symbol.
+
+### /api/getFileAdders
+Returns a `JSON.stringify`-ed array of the [manifests](#manifest) of the plugins that can accept adding this file
+(with the `symbols` field removed). This is determined by their `fileAdderPred` function.
+| Query Parameter | Meaning |
+|-|-|
+| inputData | `JSON.stringify`-ed and `encodeURIComponent`-ed object as described [here](#the-fileadderpred-function). |
+
 ### /api/getFileViewer
 Returns the id of the first plugin with the [fileViewer](#fileviewer) tag whose `fileViewerPred` function has accepted the file.
 If a file's [`pluginData`](#file-entries) doesn't contain a `viewWith` field, the client will access this api route to see if a plugin wants to dislplay the file. If none is found, it will be displayed the default way.
@@ -172,6 +180,7 @@ module.exports.manifest = ()=>({
 	tags: ["fileAdder", "fileViewer", "webSymbols", "exampleTag"],
 	symbols: {
 		"request": __filename,
+		"fileAdderPred:" _filename,
 		"viewFile": __filename,
 		"fileViewerPred": __filename
 	},
@@ -190,6 +199,7 @@ This means that the plugin has the ability to change how a file is added and dow
 |-|-|
 | Tags | `fileAdder` |
 | Symbols | function [request](#the-request-function)(source, tmpFileId, pluginData, isLocal) |
+| | function [fileAdderPred](#the-fileadderpred-function)(inputData) |
 
 ##### The request function
 This function takes a `source`, the name of the temporary file `tmpFileId`, a reference to the `pluginData` object of the file, and a boolean `isLocal`, which is true if the file is being uploaded directly to Alexandria. It can be async.
@@ -206,6 +216,22 @@ To help you in writing this function you can include the default download functi
 const { request } = require("../src/lib_util.js");
 ```
 It just downloads the file without tampering with it or changing the `pluginData`
+
+##### The fileAdderPred function
+This function takes an `inputData` object, containing the current state of the inputs on the `/add` page (and the `isLocal` property) and has to use it to decide if the plugin can handle adding the file. It is used by [/api/getFileAdders](#apigetfileadders). 
+This object contains:
+| Field | Description |
+|-|-|
+| name | The current input to the `File name` input element |
+| uri | The current input to the `Source uri` input element |
+| files | An array of the metadata of each file currently added to the `File upload` input element |
+| isLocal | Boolean, indicating whether the file will be added from uri or via file upload |
+
+The metadata contains JSON.stringified: `name`, `lastModified`, `lastModifiedDate`, `size`, `type`, `webkitRelativePath`.
+
+> [!WARNING]
+> They are serialised as-is. This means that if the browser can't detect the file type, it will be set to an empty string, not `null`.
+
 
 #### fileViewer
 This means the plugin has the functionality to change how a file's page is displayed in the browser.

@@ -33,7 +33,7 @@ module.exports.filterPluginsTag = function(tag=null){
     if (tag != null) {
         sel = sel.filter(p => plugins[p].tags.includes(tag));
     }
-    let ret = {};
-    sel.forEach(p => ret[p] = Object.assign({}, plugins[p]));
+    let ret = [];
+    sel.forEach(p => ret.push(Object.assign({}, plugins[p])));
     return ret;
 }

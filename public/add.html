@@ -23,35 +23,110 @@
     <br>
     <label for="fileUpload"> or upload a file</label>
     <input type="file" id="fileUpload">
-    <br>
-    <input type="button" id="submit" value="Add">
-    <select name="fileAdder" id="fileAdder" value="default">
+    <p id="inputError" style="color: red; margin: 0px; padding: 0px;"></p>
+    <input type="button" id="submit" value="Add" disabled>
+    <select name="fileAdder" id="fileAdder" value="default" disabled>
         <option value="default">Add (default behaviour)</option>
     </select>
     <script>
-        let fileAdderSelect = qs("select#fileAdder");
+        const nameInput = qs("input#name");
+        const uriInput = qs("input#uri");
+        const fileUploadInput = qs("input#fileUpload");
+
+        const fileAdderSelect = qs("select#fileAdder");
+        const addSubmitButton = qs("input#submit");
+        const inputError = qs("p#inputError");
+
+        let readyForUpload = false;
+        let isLocal = null;
+
+        function getFileAdders() {
+            let files = Array.from(fileUploadInput.files).map(f => ({
+                name: f.name,
+                size: f.size,
+                lastModified: f.lastModified,
+                lastModifiedDate: f.lastModifiedDate,
+                type: f.type,
+                webkitRelativePath: f.webkitRelativePath
+            }));
+            let inputData = {
+                name: nameInput.value,
+                uri: uriInput.value,
+                isLocal: isLocal,
+                files: files
+            };
+
+            fetch(`${location.origin}/api/getFileAdders?inputData=${encodeURIComponent(JSON.stringify(inputData))}`)
+                .then(r => r.json())
+                .then(adders => {
+                    fileAdderSelect.querySelectorAll("option.plugin-adder").forEach(e => e.remove());
+                    console.log(adders.map(e=>e.name));
+                    adders.forEach(adder => {
+                        let option = el("option", adder.name, "plugin-adder");
+                        option.value = adder.id;
+                        fileAdderSelect.append(option);
+                    });
+                    fileAdderSelect.disabled = false;
+                    addSubmitButton.disabled = false;
+                });
+        }
+
+        // (async () => {
+        // let fileAdders = await getPlugins("fileAdder");
+        //     if (fileAdders.length == 0) {
+        //         fileAdderSelect.style.display = "none";
+        //         return;
+        //     }
+        //     console.log(fileAdders);
+        //     for(p in fileAdders){
+        //         let option = el("option", `Add with ${fileAdders[p].name}`);
+        //         option.value = p;
+        //         fileAdderSelect.append(option);
+        //     }
+        // })();
+
         (async () => {
-            let fileAdders = await getPlugins("fileAdder");
-            if (fileAdders.length == 0) {
-                fileAdderSelect.style.display = "none";
-                return;
-            }
-            console.log(fileAdders);
-            for(p in fileAdders){
-                let option = el("option", `Add with ${fileAdders[p].name}`);
-                option.value = p;
-                fileAdderSelect.append(option);
-            }
+            nameInput.addEventListener("input", inputChanged);
+            uriInput.addEventListener("input", inputChanged);
+            fileUploadInput.addEventListener("input", inputChanged);
         })();
-        function addWithUri(name){
+
+        function inputChanged(event) {
+            let error = "";
+            readyForUpload = true;
+            fileAdderSelect.disabled = true;
+            addSubmitButton.disabled = true;
+            isLocal = null;
+
+            if (readyForUpload && nameInput.value.length == 0) { readyForUpload = false; }
+            if (readyForUpload && uriInput.value.length == 0 && fileUploadInput.files.length == 0) { readyForUpload = false; }
+            if (readyForUpload && uriInput.value.length > 0 && fileUploadInput.files.length > 0) {
+                error = "You must only add a uri or select a file, but not both.";
+                readyForUpload = false;
+            }
+            if (readyForUpload && !uriInput.checkValidity()) {
+                error = "You must enter a valid uri.";
+                readyForUpload = false;
+            }
+
+            if (!readyForUpload) {
+                inputError.innerHTML = error;
+            } else {
+                inputError.innerHTML = "";
+                isLocal = fileUploadInput.files.length > 0;
+                getFileAdders();
+            }
+        }
+
+        function addWithUri(name) {
             if (!qs("input#uri").checkValidity()) {
                 alert("This is not a valid uri.");
                 return;
             }
-            let uri = qs("input#uri").value;
-            let fileAdder = qs("select#fileAdder").value;
+            let uri = uriInput.value;
+            let fileAdder = fileAdderSelect.value;
             let fileAdderQueryString = "";
-            if(fileAdder != "default"){
+            if (fileAdder != "default") {
                 fileAdderQueryString = `&adder=${fileAdder}`;
             }
             let status;
@@ -70,16 +145,16 @@
                 })
                 .catch(console.err);
         }
-        function addWithFileUpload(name){
-            let fileAdder = qs("select#fileAdder").value;
+        function addWithFileUpload(name) {
+            let fileAdder = fileAdderSelect.value;
             let fileAdderQueryString = "";
-            if(fileAdder != "default"){
+            if (fileAdder != "default") {
                 fileAdderQueryString = `&adder=${fileAdder}`;
             }
             let status;
-            let file = qs("input#fileUpload").files[0];
+            let file = fileUploadInput.files[0];
             spin("Adding file...");
-            fetch(`${location.origin}/api/add?uri=null&name=${encodeURIComponent(name)}${fileAdderQueryString}&type=${file.type}`, {
+            fetch(`${location.origin}/api/add?uri=null&name=${encodeURIComponent(name)}${fileAdderQueryString}&type=${file.type != "" ? file.type : "null"}`, {
                 method: "POST",
                 body: file
             })
@@ -96,20 +171,15 @@
                 })
                 .catch(console.err);
         }
-        qs("input#submit").addEventListener("click", () => {
-            let name = qs("input#name").value;
-            if (name.length == 0) {
-                alert("The file name must not be empty.");
+        addSubmitButton.addEventListener("click", () => {
+            if (!readyForUpload) {
+                alert("You must have a filename and either a valid uri or a file uploaded in order to Add.");
                 return;
             }
-            if(qs("input#uri").value.length > 0 && qs("input#fileUpload").files.length > 0){
-                alert("You must only add a uri or select a file, but not both.");
-                return;
-            }
-            if(qs("input#uri").value.length > 0 || qs("input#fileUpload").files.length == 0){
-                addWithUri(name);
-            }else{
-                addWithFileUpload(name);
+            if (isLocal) {
+                addWithFileUpload(nameInput.value);
+            } else {
+                addWithUri(nameInput.value);
             }
         });
     </script>

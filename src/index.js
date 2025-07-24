@@ -25,7 +25,7 @@ function getPluginRequestFunction(plugin) {
     return getPluginSymbol(plugin, "request");
 }
 
-const add = ({ uri, name, adder = null, bodyTmpId = null, type = null}) => new Promise((res, rej) => {
+const add = ({ uri, name, adder = null, bodyTmpId = null, type = null }) => new Promise((res, rej) => {
     if (name.length == 0) {
         res.writeHead(400);
         res.end("Name can not be empty");
@@ -44,12 +44,12 @@ const add = ({ uri, name, adder = null, bodyTmpId = null, type = null}) => new P
         type: type
     };
     let tmpFilename = uuid();
-    let isLocal = (uri==null);
-    let source = isLocal?bodyTmpId:uri;
+    let isLocal = (uri == null);
+    let source = isLocal ? bodyTmpId : uri;
     getPluginRequestFunction(adder)(source, tmpFilename, obj.pluginData, isLocal)
         .then(results => {
             obj.hash = results.hash;
-            if(results.receivedType){
+            if (results.receivedType) {
                 obj.type = results.receivedType;
             }
             obj.versionTimes.push(timestamp());
@@ -62,7 +62,7 @@ const add = ({ uri, name, adder = null, bodyTmpId = null, type = null}) => new P
         .catch(rej);
 });
 const update = id => new Promise((res, rej) => {
-    if(db[id].uri == null){ rej("You can't update a locally added file."); return; }
+    if (db[id].uri == null) { rej("You can't update a locally added file."); return; }
     let tmpFilename = uuid();
     getPluginRequestFunction(db[id].pluginData.addedWith)(db[id].uri, tmpFilename, db[id].pluginData)
         .then(({ hash, type }) => {
@@ -131,7 +131,7 @@ function api_meta(id, res) {
 function api_list(res) {
     let list = [];
     for (el in db) { list.push(el); }
-    list.sort((a,b) => db[a].versionTimes[0] - db[b].versionTimes[0]);
+    list.sort((a, b) => db[a].versionTimes[0] - db[b].versionTimes[0]);
     res.end(JSON.stringify(list));
 }
 
@@ -142,7 +142,7 @@ function api_search(by, search, res) {
             found.push(id);
         }
     }
-    found.sort((a,b) => db[a].versionTimes[0] - db[b].versionTimes[0]);
+    found.sort((a, b) => db[a].versionTimes[0] - db[b].versionTimes[0]);
     res.end(JSON.stringify(found));
 }
 
@@ -167,9 +167,7 @@ function api_rename(id, name, res) {
 
 function api_plugins(tag = null, res) {
     let list = filterPluginsTag(tag);
-    for (k in list) {
-        delete list[k]["symbols"];
-    }
+    list.forEach(e=>delete e["symbols"]);
     res.end(JSON.stringify(list));
 }
 
@@ -185,13 +183,21 @@ function api_pluginSymbol(plugin, symbol, res) {
 
 function api_getFileViewer(id, res) {
     const fileViewers = filterPluginsTag("fileViewer");
-    for (p in fileViewers) {
-        if (getPluginSymbol(p, "fileViewerPred")(db[id])) {
-            res.end(p);
+    for (p of fileViewers) {
+        if (getPluginSymbol(p.id, "fileViewerPred")(db[id])) {
+            res.end(p.id);
             return;
         }
     }
     res.end("null");
+}
+
+function api_getFileAdders(inputData, res) {
+    let list = filterPluginsTag("fileAdder");
+    list = list.filter(p => getPluginSymbol(p.id, "fileAdderPred")(inputData));
+    list.forEach(e => delete e["symbols"]);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(list));
 }
 
 function api(req, res) {
@@ -199,19 +205,19 @@ function api(req, res) {
     let endpoint = parsed.pathname.slice(5);
     let query = qs.parse(parsed.query);
     if (endpoint == "add") {
-        if(!query["uri"]){
+        if (!query["uri"]) {
             res.writeHead(400);
             res.end("Must include \"uri\" query parameter");
             return;
         }
         query.uri = decodeURIComponent(query.uri);
-        if(query.uri == "null"){ query.uri = null; }
-        if(query.uri == null && req.method == "GET"){
+        if (query.uri == "null") { query.uri = null; }
+        if (query.uri == null && req.method == "GET") {
             res.writeHead(400);
             res.end("You must either make a GET request with a uri, or a POST one with a file upload.");
             return;
         }
-        if(query.url != null && req.method == "POST"){
+        if (query.url != null && req.method == "POST") {
             res.writeHead(400);
             res.end("You must either make a GET request with a uri, or a POST one with a file upload");
             return;
@@ -379,6 +385,21 @@ function api(req, res) {
             return;
         }
         api_getFileViewer(query.id, res);
+    } else if (endpoint == "getFileAdders") {
+        if (!query.inputData) {
+            res.writeHead(400);
+            res.end("Must include \"inputData\" query parameter");
+            return;
+        }
+        let inputData;
+        try {
+            inputData = JSON.parse(decodeURIComponent(query.inputData));
+        } catch (e) {
+            res.writeHead(400);
+            res.end("Invalid inputData");
+            return;
+        }
+        api_getFileAdders(inputData, res);
     } else {
         code404(res);
     }
@@ -413,7 +434,7 @@ http.createServer((req, res) => {
     req.bodyTmpId = uuid();
     let fileStream = fs.createWriteStream(`./tmp/${req.bodyTmpId}`);
     req.on("data", d => fileStream.write(d));
-    req.on("end", ()=>{
+    req.on("end", () => {
         if (req.url.startsWith("/api/")) {
             api(req, res);
             return;
