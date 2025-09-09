@@ -11,7 +11,7 @@ const { initDB, saveDB } = require("./lib_db.js");
 const { initPluginSys, getPluginSymbol, filterPluginsTag } = require("./lib_pluginsys.js");
 const { serialise } = require("./lib_serialise.js");
 
-const config = require("../config.json");
+const config = JSON.parse(fs.readFileSync("./config.json"));
 
 initDB();
 initPluginSys();
@@ -170,7 +170,7 @@ function api_rename(id, name, res) {
 
 function api_plugins(tag = null, res) {
     let list = filterPluginsTag(tag);
-    list.forEach(e=>delete e["symbols"]);
+    list.forEach(e => delete e["symbols"]);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(list));
 }
@@ -422,7 +422,7 @@ function getMimeType(filepath) {
         case ".jpeg": return "image/jpeg";
         case ".gif": return "image/gif";
         case ".svg": return "image/svg+xml";
-        case ".txt": 
+        case ".txt":
         default:
             return "text/plain";
     };
@@ -447,7 +447,7 @@ function public(req, res) {
             return;
         }
     }
-    res.writeHead(200, {"Content-Type": getMimeType(filepath)});
+    res.writeHead(200, { "Content-Type": getMimeType(filepath) });
     fs.createReadStream(filepath).pipe(res);
 }
 
