@@ -456,13 +456,19 @@ http.createServer((req, res) => {
     let fileStream = fs.createWriteStream(`./tmp/${req.bodyTmpId}`);
     req.on("data", d => fileStream.write(d));
     req.on("end", () => {
+        fileStream.end();
+        fileStream.close();
         if (req.url.startsWith("/api/")) {
             api(req, res);
-            return;
         } else {
             public(req, res);
         }
-    })
+    });
+    res.on("close", ()=>{
+        if(fs.existsSync(`./tmp/${req.bodyTmpId}`)){
+            fs.rmSync(`./tmp/${req.bodyTmpId}`);
+        }
+    });
 }).listen(config.port, () => {
     console.log(`listening on port ${config.port}`);
 });
