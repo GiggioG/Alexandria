@@ -19,6 +19,13 @@ function ser(obj, symbolRegistry) {
         return `Symbol.for(\"${symbolRegistry[obj]}\")`;
     }
     if (t == "object") {
+		if(Array.isArray(obj)){
+			let elements = [];
+			for(k in obj){
+				elements.push(ser(obj[k]));
+			}
+			return '[' + elements.join(',') + ']';
+		}
         let keyValuePairs = [];
         for(k in obj){
             keyValuePairs.push(`${ser(k, symbolRegistry)}: ${ser(obj[k], symbolRegistry)}`);
